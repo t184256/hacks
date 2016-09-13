@@ -1,7 +1,14 @@
 language: python
 python:
-  - "3.4"
-  - "3.5"
-  - "nightly"
-install: "pip install -r requirements.txt"
+- '3.4'
+- '3.5'
+- nightly
+install: pip install -r requirements.txt
 script: nosetests
+deploy:
+  provider: pypi
+  user: t184256
+  password:
+    secure: f8IGCIrNO8Ea3LNbbxpmPE+bXsXndyMFQLfKE4RbI05s2MNL064yCXbA5c0hIieDEGHmSrwXNJFr+sKkDHk23HOa4h90opjhcPQAuOpCZfvyvHtsTXqFle0OvFB3NTx4ELEEkiMm9vAc4nmbUW8Up9PBC/68dWebAy6NU8TfaYdCV1vC2nfmM3RwQo9+Vh0oaFfrsKKiSrCiZLsmFA1A4BQfh8NMjiEIPX7eLB7ouwDJMo9wLOQICta6U8ptN1RWRntnvz2xiUo3YoYAorX5iKQSuPh8H7B+Bt22MsZzNyIzNsbSYyeSSB1+gjv7sjLSNE+2gLKeXBnadr7nsCJw36ilUeMeryZpT0LT0HvZs3YrtGwgyH7+sJBAVndQA4oiHWHoACGdWo5r2zzlkbyNteNiDoSEMhE15/YQoLkwi7JkzZ4kcepaJ5IFabChH/W25ceEysXgeH3LrBzncG9iXPSoN9AEuNuIO0TP/sZ8L2QLX7iNp8u06a1sCl2ucLL7ovwJmTGWAx9voR4KhRsEjaGmkreZ2nvAWPioLExLWUxwgBkYwWC6dudH6Cz/LdBo4BFWPn5NBdbLTa4h+vRJqv0Q+r19oRB/4UEaXSAGDFegjECTOxox2JEet1H4UkRtwmdfe/lMzZOIbcE1n1QuSzRyzmsi4hUFwl2+XszHZfQ=
+  on:
+    tags: true

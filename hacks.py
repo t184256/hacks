@@ -72,14 +72,11 @@ class _PluginRegistry:
 
     def _register_attributes(self, hack):
         """Also register methods and methods of inner classes."""
-        for attrname in dir(hack):
-            if attrname.startswith('__'):
-                continue
-            attr = getattr(hack, attrname)
-            if inspect.isclass(attr):  # an inner class?
+        for attrname, attr in inspect.getmembers(hack, inspect.isroutine):
+            self._register(attr, recursively=False)
+        for attrname, attr in inspect.getmembers(hack, inspect.isclass):
+            if not attrname.startswith('__'):
                 self._register(attr, recursively=True)
-            elif inspect.isroutine(attr):  # function or method
-                self._register(attr, recursively=False)
 
     def call_by_name(self, method_name, *a, **kwa):
         """Return a list of execution results for all applicable methods."""

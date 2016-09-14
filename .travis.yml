@@ -1,9 +1,13 @@
 language: python
 python:
+- '3.2'
+- '3.3'
+- '3.4'
 - '3.4'
 - '3.5'
 - nightly
-install: pip install -r requirements.txt
+install: pip install --upgrade -r requirements.txt setuptools>=17.1 pbr>=1.9
+cache: pip
 script: nosetests
 deploy:
   provider: pypi

@@ -36,11 +36,14 @@ def test_stdout_monkeypatching():
     def zomg_ponies(stdout_to_modify):
         class Ponyfier:
             def write(self, text):
-                stdout_to_modify.write('🐎' * len(text))
+                ponified = ''.join('🐎' if not c.isspace() else c for c in text)
+                stdout_to_modify.write(ponified)
         return Ponyfier()
 
     with hacks.use(capture_stdout):
+        print('I')
         with hacks.use(zomg_ponies):  # A second hack stacks on top
-            print('oh no')            # of the other one reasonably
+            print('HATE')             # of the first one reasonably
+        print('PONIES')
 
-    assert fake_stdout.getvalue() == 'Hello\n' + '🐎' * len('oh no\n')
+    assert fake_stdout.getvalue() == 'Hello\nI\n🐎🐎🐎🐎\nPONIES\n'

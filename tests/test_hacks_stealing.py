@@ -45,8 +45,9 @@ call_log = []
 @hacks.into('context_aware')
 @hacks.stealing
 def context_aware_hack(*args, frameinfo=hacks.steal_frameinfo, **kwargs):
-    some_var_present = 'some_var' in frameinfo.frame.f_locals
-    call_log.append((frameinfo.function, args, kwargs, some_var_present))
+    frame, filename, lineno, function, code_context, index = frameinfo
+    some_var_present = 'some_var' in frame.f_locals
+    call_log.append((function, args, kwargs, some_var_present))
 
 def test_context_aware_hack():
     with hacks.use(context_aware_hack):

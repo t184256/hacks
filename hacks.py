@@ -31,8 +31,8 @@ LOCALS_MARKER = '__used_hacks_registries__'
 def get_recent_plugins_registry():
     """Traverse the call stack, find most recent 'with hacks.use(...).'"""
     for frameinfo in inspect.stack() :
-        if LOCALS_MARKER in frameinfo.frame.f_locals:
-            registries = frameinfo.frame.f_locals[LOCALS_MARKER]
+        if LOCALS_MARKER in frameinfo[0].f_locals:
+            registries = frameinfo[0].f_locals[LOCALS_MARKER]
             if not registries:
                 continue
             return registries[-1]
@@ -98,7 +98,7 @@ class _PluginRegistry:
                     continue  # provided by someone else
                 try:
                     if param.default is _Steal:
-                        caller_locals = frameinfo.frame.f_locals
+                        caller_locals = frameinfo[0].f_locals
                         kwa[param_name] = caller_locals[param_name]
                     elif isinstance(param.default, _Steal):
                         kwa[param_name] = caller_locals[param.default._name]
@@ -113,7 +113,7 @@ class _PluginRegistry:
     def __enter__(self):
         """Store in call stack for lookup with get_recent_plugins_registry."""
         frameinfo = inspect.stack()[1]
-        loc = frameinfo.frame.f_locals
+        loc = frameinfo[0].f_locals
         if LOCALS_MARKER in loc:
             loc[LOCALS_MARKER].append(self)
         else:
@@ -122,7 +122,7 @@ class _PluginRegistry:
     def __exit__(self, type_, value, traceback):
         """Remove marker from the call stack."""
         frameinfo = inspect.stack()[1]
-        loc = frameinfo.frame.f_locals
+        loc = frameinfo[0].f_locals
         assert LOCALS_MARKER in loc
         assert loc[LOCALS_MARKER][-1] == self
         loc[LOCALS_MARKER].pop()

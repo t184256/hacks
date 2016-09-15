@@ -154,15 +154,15 @@ class _CallProxy():
 call = _CallProxy()
 
 
-##############################################
-# @hacks.friendly_callable and @hacks.around #
-##############################################
+#####################################
+# @hacks.friendly and @hacks.around #
+#####################################
 
 def around(*names_to_hack_around):
     """
     Decorate a function/method, so that it will wrap other objects later.
     This callable should be later registered in a HacksRegistry. After that,
-    hacks.friendly_callable(...)-decorated callables with matching names
+    hacks.friendly(...)-decorated objects with matching names
     would be wrapped with hacks.around(...)-decorated functions on first call
     in new hacks registry context.
     Works internally by setting __hacks_around__ on the decorated callable.
@@ -188,13 +188,19 @@ def _cached_effective_wrapped_object(cache, original_object,
         return wrapped
 
 
-def friendly_callable(name_for_hacks_around):
+def friendly(name_for_hacks_around):
     """
-    Decorate an callable to be altered with hacks
+    Decorate an object to be altered with hacks
     (decorated with @hacks.around).
     Works internally by using a proxy object.
+
+    Does it best to update the current set of hacks on every usage,
+    but probably isn't very good at it
+    (now it only covers calls and field access).
+    Every re-covering reevaluates the wrapped object back from
+    the original one.
     """
-    def friendly_callable_decorator(original_object):
+    def friendly_decorator(original_object):
         cache = {}
 
         class HacksProxy(wrapt.CallableObjectProxy):
@@ -214,7 +220,7 @@ def friendly_callable(name_for_hacks_around):
 
         return HacksProxy(original_object)
 
-    return friendly_callable_decorator
+    return friendly_decorator
 
 
 #######################################

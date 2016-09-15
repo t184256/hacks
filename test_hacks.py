@@ -89,7 +89,7 @@ def use_hack_names_from_other_function():
 # Usage of @hacks.around: modifying a function #
 ################################################
 
-@hacks.friendly_callable('func')
+@hacks.friendly('func')
 def func():
     return 4
 
@@ -159,7 +159,7 @@ def test_hacks_up_class():
 # Usage of @hacks.around: wrapping a function/method #
 ######################################################
 
-@hacks.friendly_callable('beep')
+@hacks.friendly('beep')
 def beep():
     return 'BEEP'
  
@@ -230,7 +230,7 @@ def change_name(person):
 def test_hacks_around_object():
     michael = Person()
     michael.name = 'Michael'
-    michael = hacks.friendly_callable('name')(michael)
+    michael = hacks.friendly('name')(michael)
     assert michael.name == 'Michael'
     with hacks.use(change_name):
         assert michael.name == 'patched'

@@ -17,7 +17,7 @@ def test_stdout_monkeypatching():
 
 
     # Now let's patch stdout with hacks:
-    sys.stdout = hacks.friendly_callable('stdout')(sys.stdout)
+    sys.stdout = hacks.friendly('stdout')(sys.stdout)
     # Nothing bad should happen for now
 
     fake_stdout = io.StringIO()

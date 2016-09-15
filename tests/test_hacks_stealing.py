@@ -1,9 +1,36 @@
 import hacks
 
 
-#########################################################################
-# @hacks.locals_stealing: becoming intimately aware of hacks.call users #
-#########################################################################
+##########################################################
+# @hacks.stealing: stealing locals from hacks.call users #
+##########################################################
+
+def normal_function_123():
+    for i in range(1, 4):
+        hacks.call.inner_cycle_123()  # i not passed to inner_cycle_123
+
+
+# let the hacks begin
+
+storage = []
+
+@hacks.into('inner_cycle_123')
+@hacks.stealing
+def store(i=hacks.steal):
+    storage.append(i)
+
+def test_store():
+    with hacks.use(store):
+        normal_function_123()
+    assert storage == [1, 2, 3]
+
+    store(4)
+    assert storage == [1, 2, 3, 4]
+
+
+##################################################################
+# @hacks.stealing: becoming intimately aware of hacks.call users #
+##################################################################
 
 def normal_function_a():
     hacks.call.context_aware()
@@ -32,31 +59,3 @@ def test_context_aware_hack():
         ('normal_function_b', (1,), {'b': 3}, True),
         ('test_context_aware_hack', ('note that',), {}, False),
     ]
-
-
-#################################################################
-# @hacks.locals_stealing: stealing locals from hacks.call users #
-#################################################################
-
-
-def normal_function_123():
-    for i in range(1, 4):
-        hacks.call.inner_cycle_123()
-
-
-# let the hacks begin
-
-storage = []
-
-@hacks.into('inner_cycle_123')
-@hacks.stealing
-def store(i=hacks.steal):
-    storage.append(i)
-
-def test_store():
-    with hacks.use(store):
-        normal_function_123()
-    assert storage == [1, 2, 3]
-
-    store(4)
-    assert storage == [1, 2, 3, 4]

@@ -29,18 +29,18 @@ def stuttering_duck(DuckToPatch):
 
 
 def test_hacks_up_class():
-    duck = Duck()  # TODO: use it!
+    duck = Duck()
     assert duck.quack() == 'quack'
     with hacks.use(woofing_duck):
         assert duck.quack() == 'woof'
         with hacks.use(stuttering_duck):
             assert duck.quack() == 'wo-woof'
-    assert Duck().quack() == 'quack'
+    assert duck.quack() == 'quack'
     with hacks.use(stuttering_duck):
-        assert Duck().quack() == 'qu-quack'
+        assert duck.quack() == 'qu-quack'
         with hacks.use(woofing_duck):
-            assert Duck().quack() == 'woof'
-    assert Duck().quack() == 'quack'
+            assert duck.quack() == 'woof'
+    assert duck.quack() == 'quack'
 
 
 ########################################

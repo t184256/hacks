@@ -30,9 +30,9 @@ LOCALS_MARKER = '__used_hacks_registries__'
 
 def get_recent_plugins_registry():
     """Traverse the call stack, find most recent 'with hacks.use(...).'"""
-    for frame in inspect.stack() :
-        if LOCALS_MARKER in frame[0].f_locals:
-            registries = frame[0].f_locals[LOCALS_MARKER]
+    for frameinfo in inspect.stack() :
+        if LOCALS_MARKER in frameinfo.frame.f_locals:
+            registries = frameinfo.frame.f_locals[LOCALS_MARKER]
             if not registries:
                 continue
             return registries[-1]
@@ -78,15 +78,42 @@ class _PluginRegistry:
             if not attrname.startswith('__'):
                 self._register(attr, recursively=True)
 
-    def call_by_name(self, method_name, *a, **kwa):
+    def _call_by_name(self, callable_name, *a, **kwa):
         """Return a list of execution results for all applicable methods."""
         # Possibly a hot function, TODO: optimize
-        return [method(*a, **kwa) for method in self._hacks_into[method_name]]
+
+        # Rarely-used context stealing:
+        frameinfo = inspect.stack()[2]  # 1 from here, 1 from _CallProxy's lambda
+
+        callables = self._hacks_into[callable_name]
+        return [self._call_with_extra_hacks(clb, frameinfo, *a, **kwa)
+                for clb in callables]
+
+    def _call_with_extra_hacks(self, clb, frameinfo, *a, **kwa):
+        if hasattr(clb, '__hacks_stealer__'):
+            sig = inspect.signature(clb)
+            bound_args = sig.bind_partial(*a, **kwa)
+            for param_name, param in sig.parameters.items():
+                if param_name in bound_args.arguments:
+                    continue  # provided by someone else
+                try:
+                    if param.default is _Steal:
+                        caller_locals = frameinfo.frame.f_locals
+                        kwa[param_name] = caller_locals[param_name]
+                    elif isinstance(param.default, _Steal):
+                        kwa[param_name] = caller_locals[param.default._name]
+                    elif isinstance(param.default, _StealFrameInfo):
+                        kwa[param_name] = frameinfo
+                except KeyError as ke:
+                    avail = ', '.join('\'' + k + '\'' for k in caller_locals.keys())
+                    text = ke.args[0] + ' (available: ' + avail + ')'
+                    raise NameError(text)
+        return clb(*a, **kwa)
 
     def __enter__(self):
         """Store in call stack for lookup with get_recent_plugins_registry."""
-        frame = inspect.stack()[1]
-        loc = frame[0].f_locals
+        frameinfo = inspect.stack()[1]
+        loc = frameinfo.frame.f_locals
         if LOCALS_MARKER in loc:
             loc[LOCALS_MARKER].append(self)
         else:
@@ -94,8 +121,8 @@ class _PluginRegistry:
 
     def __exit__(self, type_, value, traceback):
         """Remove marker from the call stack."""
-        frame = inspect.stack()[1]
-        loc = frame[0].f_locals
+        frameinfo = inspect.stack()[1]
+        loc = frameinfo.frame.f_locals
         assert LOCALS_MARKER in loc
         assert loc[LOCALS_MARKER][-1] == self
         loc[LOCALS_MARKER].pop()
@@ -148,10 +175,28 @@ class _CallProxy():
         registry = self._registry or get_recent_plugins_registry()
         if not registry:
             return lambda *a, **kwa: []
-        return lambda *a, **kwa: registry.call_by_name(name, *a, **kwa)
+        return lambda *a, **kwa: registry._call_by_name(name, *a, **kwa)
 
 
 call = _CallProxy()
+
+
+def stealing(clb):
+    """For use with hacks.into only for now. TODO: generalize"""
+    clb.__hacks_stealer__ = None
+    # the presence of the argument is important, the value is not
+    return clb
+
+
+class _Steal:
+    def __init__(self, name=None):
+        self._name = name
+steal = _Steal
+
+
+class _StealFrameInfo:
+    pass
+steal_frameinfo = _StealFrameInfo()
 
 
 #####################################

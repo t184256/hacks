@@ -5,7 +5,7 @@ Usage
 -----
 This package currently lacks nice documentation.
 
-Please see [`test_hacks.py`](./test_hacks.py) for usage examples.
+Please see `tests` directory for usage examples for now.
 
 In a nutshell, it allows extending code explicitly,
 but encourages practices that are usually frowned upon.

@@ -66,4 +66,36 @@ def test_hacks_around_function():
     assert func() == 4
     with hacks.use(stutter):
         assert func() == [4, 4]
-    assert func() == 4
+
+
+###############################################
+# Usage of @hacks.around: extending via class #
+###############################################
+
+class BrokenWatch:
+    def tick(self):
+        return 'tock'
+
+
+@hacks.around('broken_watch_instance')
+def fix_watch(broken_watch_instance):
+    class FixedWatch(broken_watch_instance.__class__):
+        def tick(self):
+            return 'tick'
+    def apply_fix(broken_watch_instance):
+        import copy
+        fixed_watch_instance = copy.copy(broken_watch_instance)
+        fixed_watch_instance.__class__ = FixedWatch
+        return fixed_watch_instance
+    return apply_fix(broken_watch_instance)
+    # TODO: write a convenience function 'reclassify_as'
+    #return hacks.reclassify(broken_watch_instance, FixedWatch)
+
+
+def test_hack_around_extend_class():
+    broken = BrokenWatch()
+    broken = hacks.friendly('broken_watch_instance')(broken)
+    assert broken.tick() == 'tock'
+    with hacks.use(fix_watch):
+        assert broken.tick() == 'tick'
+    assert broken.tick() == 'tock'

@@ -19,14 +19,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 import collections
 import inspect
 
-import wrapt
+import mutants
 
 
 LOCALS_MARKER = '__used_hacks_registries__'
 
+
+#####################################################
+# hacks.use, registry and active registry detection #
+#####################################################
 
 def get_recent_plugins_registry():
     """Traverse the call stack, find most recent 'with hacks.use(...).'"""
@@ -147,6 +152,10 @@ def use(*a, only=False):
     return _PluginRegistry(hacks_tuple)
 
 
+##############################
+# @hacks.into and hacks.call #
+##############################
+
 def into(*plugging_point_names):
     """
     Decorate a function/method to be called at specific extension implementations.
@@ -219,7 +228,7 @@ def around(*names_to_hack_around):
 
 
 def _cached_effective_wrapped_object(cache, original_object,
-        name_for_hacks_around):
+                                     name_for_hacks_around):
     # Possibly a hot function, TODO: optimize
     registry = get_recent_plugins_registry()
     if not registry:
@@ -237,33 +246,24 @@ def friendly(name_for_hacks_around):
     """
     Decorate an object to be altered with hacks
     (decorated with @hacks.around).
-    Works internally by using a proxy object.
 
-    Does it best to update the current set of hacks on every usage,
-    but probably isn't very good at it
-    (now it only covers calls and field access).
-    Every re-covering reevaluates the wrapped object back from
-    the original one.
+    Checks the active set of hacks on every usage.
+    When it changes, the wrapped object reevaluates
+    back from the original one on next access.
+    This may resdult in discarding the modifications to object.
+
+    If that's not what you want,
+    and you'd better modify the underlying class behaviour,
+    consider using @hacks.friendly_class and @hacks.up.
     """
     def friendly_decorator(original_object):
         cache = {}
 
-        class HacksProxy(wrapt.CallableObjectProxy):
-            def __call__(self, *a, **kwa):
-                self.__wrapped__ = _cached_effective_wrapped_object(
-                    cache, original_object, name_for_hacks_around
-                )
-                return super().__call__(*a, **kwa)
+        def rewrap_object():
+            return _cached_effective_wrapped_object(cache, original_object,
+                                                    name_for_hacks_around)
 
-            def __getattribute__(self, name):
-                self.__wrapped__ = w = _cached_effective_wrapped_object(
-                    cache, original_object, name_for_hacks_around
-                )
-                if name in ('__wrapped__', '__call__'):
-                    return object.__getattribute__(self, name)
-                return w.__getattr__(name)
-
-        return HacksProxy(original_object)
+        return mutants.ImmutableMutant(rewrap_object)
 
     return friendly_decorator
 
@@ -291,36 +291,35 @@ def _cached_effective_wrapped_up_class(cache, original_cls, name_for_hacks_up):
         cache[registry] = wrapped
         return wrapped
 
+
 def friendly_class(name_for_hacks_up):
+    """
+    Decorate an class, which should be modifiable with
+    class modifiers (functions decorated with @hacks.up).
+
+    Checks the active set of hacks on every usage.
+    When it changes, the hacked class reevaluates
+    back from the original one on next access.
+    Then the objects get their __class__ reset.
+
+    This kind of modification preserves their state.
+    """
     def friendly_class_decorator(original_cls):
         cache = {}
 
+        def reclassify(_):
+            return _cached_effective_wrapped_up_class(cache, original_cls,
+                                                      name_for_hacks_up)
+
         class MetaAutoreparenting(type):
             def __call__(cls, *args, **kwds):
-                new_obj = type.__call__(cls, *args, **kwds)
-                return AutoReparenting(new_obj)
+                original_object = type.__call__(cls, *args, **kwds)
+                return mutants.ClassHopperMutant(original_object, reclassify)
 
-        class AutoReparenting(wrapt.CallableObjectProxy):
-            def __call__(self, *a, **kwa):
-                self.__wrapped__.__class__ = _cached_effective_wrapped_up_class(
-                    cache, original_cls, name_for_hacks_up
-                )
-                return super().__call__(*a, **kwa)
-
-            def __getattribute__(self, name):
-                w = wrapt.CallableObjectProxy.__getattribute__(self,
-                                                               '__wrapped__')
-                w.__class__  =  _cached_effective_wrapped_up_class(
-                    cache, original_cls, name_for_hacks_up
-                )
-                if name in ('__wrapped__', '__call__'):
-                    return object.__getattribute__(self, name)
-                return w.__getattribute__(name)
-
-        class Autoreparenting(original_cls, metaclass=MetaAutoreparenting):
+        class AutoReparenting(original_cls, metaclass=MetaAutoreparenting):
             pass
 
-        return Autoreparenting
+        return AutoReparenting
 
     return friendly_class_decorator
 

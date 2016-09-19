@@ -10,6 +10,7 @@ Please see `tests` directory for usage examples for now.
 In a nutshell, it allows extending code explicitly,
 but encourages practices that are usually frowned upon.
 
+
 Installation (approximate)
 --------------------------
 From pypi:
@@ -24,6 +25,13 @@ From local source:
 
     pip3 install -r requirements.txt
     python3 setup.py install
+
+
+More
+----
+`hacks` gave life and purpose to another library, `mutants`.
+Check it out: https://github.com/t184256/mutants
+
 
 License
 -------

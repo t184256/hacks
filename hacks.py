@@ -45,12 +45,14 @@ def get_recent_plugins_registry():
 
 class _PluginRegistry:
     """A registry of plugins."""
-    def __init__(self, hacks_iterable):
-        self._hacks_list = list(hacks_iterable)
+    def __init__(self, hacks_iterable, _prev_hacks=None):
+        self._prev_hacks_list = list(_prev_hacks) if _prev_hacks else []
+        self._new_hacks_list = list(hacks_iterable)
+        self._hacks_list = self._prev_hacks_list + self._new_hacks_list
         self._hacks_into = collections.defaultdict(list)
         self._hacks_around = collections.defaultdict(list)
         self._hacks_up = collections.defaultdict(list)
-        for hack in hacks_iterable:
+        for hack in self._hacks_list:
             self._register(hack)
 
         self.call = _CallProxy(self)
@@ -116,7 +118,10 @@ class _PluginRegistry:
         return clb(*a, **kwa)
 
     def __enter__(self):
-        """Store in call stack for lookup with get_recent_plugins_registry."""
+        """
+        Store in call stack for lookup with get_recent_plugins_registry.
+        Call __on_enter__ on hacks in forward order.
+        """
         frameinfo = inspect.stack()[1]
         loc = frameinfo[0].f_locals
         if LOCALS_MARKER in loc:
@@ -124,8 +129,16 @@ class _PluginRegistry:
         else:
             loc[LOCALS_MARKER] = [self]
 
+        # Call __on_enter__ for hacks in forward order:
+        for hack in self._new_hacks_list:
+            if hasattr(hack, '__on_enter__'):
+                hack.__on_enter__(frameinfo)
+
     def __exit__(self, type_, value, traceback):
-        """Remove marker from the call stack."""
+        """
+        Remove marker from the call stack.
+        Call __on_exit__ on hacks in reverse order.
+        """
         frameinfo = inspect.stack()[1]
         loc = frameinfo[0].f_locals
         assert LOCALS_MARKER in loc
@@ -133,6 +146,11 @@ class _PluginRegistry:
         loc[LOCALS_MARKER].pop()
         if not loc[LOCALS_MARKER]:
             del loc[LOCALS_MARKER]
+
+        # Call __on_exit__ for hacks in reverse order:
+        for hack in reversed(self._new_hacks_list):
+            if hasattr(hack, '__on_exit__'):
+                hack.__on_exit__(frameinfo)
 
     def _apply_hacks_around(self, clb, name_for_hacks_around):
         for hack in self._hacks_around[name_for_hacks_around]:
@@ -146,10 +164,12 @@ class _PluginRegistry:
 
 
 def use(*a, only=False):
-    prev_registry = get_recent_plugins_registry()
-    prev_hacks = prev_registry._hacks_list if prev_registry is not None else []
-    hacks_tuple = a if only else tuple(prev_hacks) + a
-    return _PluginRegistry(hacks_tuple)
+    prev_hacks = None
+    if not only:
+        prev_registry = get_recent_plugins_registry()
+        if prev_registry:
+            prev_hacks = prev_registry._hacks_list
+    return _PluginRegistry(a, _prev_hacks=prev_hacks)
 
 
 ##############################

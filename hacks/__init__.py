@@ -21,6 +21,7 @@
 
 
 import collections
+import importlib
 import inspect
 
 import mutants
@@ -45,13 +46,14 @@ def get_recent_plugins_registry():
 
 class _PluginRegistry:
     """A registry of plugins."""
-    def __init__(self, hacks_iterable, _prev_hacks=None):
+    def __init__(self, hacks_iterable, package=None, _prev_hacks=None):
         self._prev_hacks_list = list(_prev_hacks) if _prev_hacks else []
         self._new_hacks_list = list(hacks_iterable)
         self._hacks_list = self._prev_hacks_list + self._new_hacks_list
         self._hacks_into = collections.defaultdict(list)
         self._hacks_around = collections.defaultdict(list)
         self._hacks_up = collections.defaultdict(list)
+        self._package = package
         for hack in self._hacks_list:
             self._register(hack)
 
@@ -59,6 +61,14 @@ class _PluginRegistry:
 
     def _register(self, hack, recursively=True):
         """Register a hack and remember its modifications."""
+        if isinstance(hack, str):
+            # Deal with 'my.great.module:deeply.buried.hack' format
+            assert hack.count(':') == 1
+            hack, further_name = hack.split(':', 1)
+            hack = importlib.import_module(hack, package=self._package)
+            for part in further_name.split('.'):
+                hack = getattr(hack, part)
+
         if hasattr(hack, '__hacks_into__'):
             for p in hack.__hacks_into__:
                 self._hacks_into[p].append(hack)
@@ -163,13 +173,13 @@ class _PluginRegistry:
         return cls
 
 
-def use(*a, only=False):
+def use(*a, only=False, package=None):
     prev_hacks = None
     if not only:
         prev_registry = get_recent_plugins_registry()
         if prev_registry:
             prev_hacks = prev_registry._hacks_list
-    return _PluginRegistry(a, _prev_hacks=prev_hacks)
+    return _PluginRegistry(a, _prev_hacks=prev_hacks, package=package)
 
 
 ##############################

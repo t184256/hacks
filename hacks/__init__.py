@@ -288,6 +288,56 @@ def friendly(name_for_hacks_around):
     return friendly_decorator
 
 
+###########################################################
+# @hacks.before and @hacks.after wrappers of @hack.around #
+###########################################################
+
+def before(*names_to_hack_before):
+    def before_decorator(func_to_call_before):
+
+        # So '@hacks.before' is synonymous to:
+        @around(*names_to_hack_before)
+        def hacking_around(*ignored_self_and_original_func):
+            original_func = ignored_self_and_original_func[-1]
+            possibly_self = ignored_self_and_original_func[:-1]
+            def before_aware_func(*a, **kwa):
+                extended_args = possibly_self + (original_func,) + a  # Py<3.5
+                fr = func_to_call_before(*extended_args, **kwa)
+                if isinstance(fr, FakeResult):
+                    return fr.result
+                return original_func(*a, **kwa)
+            return before_aware_func
+
+        return hacking_around
+    return before_decorator
+
+
+def after(*names_to_hack_after):
+    def after_decorator(func_to_call_after):
+
+        # So '@hacks.after' is synonymous to:
+        @around(*names_to_hack_after)
+        def hacking_after(*ignored_self_and_original_func):
+            original_func = ignored_self_and_original_func[-1]
+            possibly_self = ignored_self_and_original_func[:-1]
+            def after_aware_func(*a, **kwa):
+                retval = original_func(*a, **kwa)
+                extended_args = possibly_self + (retval,) + a  # Py<3.5
+                fr = func_to_call_after(*extended_args, **kwa)
+                if isinstance(fr, FakeResult):
+                    return fr.result
+                return retval
+            return after_aware_func
+
+        return hacking_after
+    return after_decorator
+
+
+class FakeResult:
+    def __init__(self, result):
+        self.result = result
+
+
 #######################################
 # @hacks.friendly_class and @hacks.up #
 #######################################

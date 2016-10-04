@@ -5,7 +5,7 @@ import hacks
 # Usage of @hacks.up: modifying a class #
 #########################################
 
-@hacks.friendly_class('Duck')
+@hacks.friendly_class  # Name not specified
 class Duck:
     def quack(self):
         return 'quack'
@@ -47,7 +47,7 @@ def test_hacks_up_class():
 # Usage of @hacks.up extending a class #
 ########################################
 
-@hacks.friendly_class('Multiplier')
+@hacks.friendly_class  # Name not specified
 class Multiplier:
     def __init__(self, value):
         self._value = value

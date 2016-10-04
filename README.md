@@ -65,13 +65,13 @@ main_code()  # print nothing
 
 # Hacks can be used to modify @hacks.friendly objects, e.g. wrap functions:
 
-@hacks.friendly('printer')
+@hacks.friendly  # name not specified, pass 'greeter' to @hacks.around
 def greeter():
     return 'Hello!'
 # ...
 
 
-@hacks.around('printer')
+@hacks.around('greeter')
 def reverse(func):
     def func_reversed():
         return func()[::-1]
@@ -87,7 +87,7 @@ print(greeter())  # Prints 'Hello!'
 # There is special support for extending classes and mutating existing
 # instances to use the updated versions transparently:
 
-@hacks.friendly_class('clock')
+@hacks.friendly_class  # name not specified, pass 'Clock' to @hacks.up
 class Clock:
     def __init__(self, text):
         self._text = text
@@ -96,7 +96,7 @@ class Clock:
 
 
 # ...
-@hacks.up('clock')
+@hacks.up('Clock')
 def tockify(clock_class):
     class TockingClock:
         def tick(self):
@@ -131,7 +131,7 @@ Meh, extending code with `hacks` is too explicit!
 Ah, the object of your interest is not decorated?
 No problems, monkeypatch it with @hacks_friendly:
 ```python
-sys.stdin = hacks_friendly('stdin')(sys.stdin)
+sys.stdin = hacks_friendly(sys.stdin)
 ```
 That alone should have near-zero visible effect.
 Now change, wrap and extend it however you want with `hacks.use(...)`

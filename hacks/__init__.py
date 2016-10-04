@@ -162,14 +162,16 @@ class _PluginRegistry:
             if hasattr(hack, '__on_exit__'):
                 hack.__on_exit__(frameinfo)
 
-    def _apply_hacks_around(self, clb, name_for_hacks_around):
-        for hack in self._hacks_around[name_for_hacks_around]:
-            clb = hack(clb)
+    def _apply_hacks_around(self, clb, names_for_hacks_around):
+        for name_for_hacks_around in names_for_hacks_around:
+            for hack in self._hacks_around[name_for_hacks_around]:
+                clb = hack(clb)
         return clb
 
-    def _apply_hacks_up(self, cls, name_for_hacks_up):
-        for hack in self._hacks_up[name_for_hacks_up]:
-            cls = hack(cls)
+    def _apply_hacks_up(self, cls, names_for_hacks_up):
+        for name_for_hacks_up in names_for_hacks_up:
+            for hack in self._hacks_up[name_for_hacks_up]:
+                cls = hack(cls)
         return cls
 
 
@@ -258,7 +260,7 @@ def around(*names_to_hack_around):
 
 
 def _cached_effective_wrapped_object(cache, original_object,
-                                     name_for_hacks_around):
+                                     names_for_hacks_around):
     # Possibly a hot function, TODO: optimize
     registry = get_recent_plugins_registry()
     if not registry:
@@ -267,12 +269,12 @@ def _cached_effective_wrapped_object(cache, original_object,
         return cache[registry]
     else: # Wrap an object for use with current registry and cache it
         wrapped = registry._apply_hacks_around(original_object,
-                                               name_for_hacks_around)
+                                               names_for_hacks_around)
         cache[registry] = wrapped
         return wrapped
 
 
-def friendly(name_for_hacks_around):
+def friendly(*names_for_hacks_around):
     """
     Decorate an object to be altered with hacks
     (decorated with @hacks.around).
@@ -280,21 +282,36 @@ def friendly(name_for_hacks_around):
     Checks the active set of hacks on every usage.
     When it changes, the wrapped object reevaluates
     back from the original one on next access.
-    This may resdult in discarding the modifications to object.
+    This may result in discarding the modifications to object.
 
     If that's not what you want,
     and you'd better modify the underlying class behaviour,
     consider using @hacks.friendly_class and @hacks.up.
     """
+
+    if names_for_hacks_around and len(names_for_hacks_around) == 1:
+        arg = names_for_hacks_around[0]
+        if not isinstance(arg, str):
+            # Decorator applied without arguments
+            # Use some deduced name, apply to passed object
+            if hasattr(arg, '__qualname__'):
+                name = arg.__qualname__
+            elif hasattr(arg, '__name__'):
+                name = arg.__name__
+            elif hasattr(arg, '__class__'):
+                if hasattr(arg.__class__, '__qualname__'):
+                    name = arg.__class__.__qualname__
+            else:
+                raise RuntimeError('@hacks.friendly: specify name for ' +
+                                   str(arg))
+            return friendly(name)(arg)
+
     def friendly_decorator(original_object):
         cache = {}
-
         def rewrap_object():
             return _cached_effective_wrapped_object(cache, original_object,
-                                                    name_for_hacks_around)
-
+                                                    names_for_hacks_around)
         return mutants.ImmutableMutant(rewrap_object)
-
     return friendly_decorator
 
 
@@ -359,7 +376,7 @@ def up(*names_to_hack_up):
     return up_decorator
 
 
-def _cached_effective_wrapped_up_class(cache, original_cls, name_for_hacks_up):
+def _cached_effective_wrapped_up_class(cache, original_cls, names_for_hacks_up):
     # Possibly a hot function, TODO: optimize
     registry = get_recent_plugins_registry()
     if not registry:
@@ -367,12 +384,12 @@ def _cached_effective_wrapped_up_class(cache, original_cls, name_for_hacks_up):
     if registry in cache.keys(): # Reuse an class pre-wrapped with hack-ups
         return cache[registry]
     else: # Wrap an object for use with current registry and cache it
-        wrapped = registry._apply_hacks_up(original_cls, name_for_hacks_up)
+        wrapped = registry._apply_hacks_up(original_cls, names_for_hacks_up)
         cache[registry] = wrapped
         return wrapped
 
 
-def friendly_class(name_for_hacks_up):
+def friendly_class(*names_for_hacks_up):
     """
     Decorate an class, which should be modifiable with
     class modifiers (functions decorated with @hacks.up).
@@ -384,12 +401,24 @@ def friendly_class(name_for_hacks_up):
 
     This kind of modification preserves their state.
     """
+    if names_for_hacks_up and len(names_for_hacks_up) == 1:
+        arg = names_for_hacks_up[0]
+        if not isinstance(arg, str):
+            # Decorator applied without arguments
+            # Use class name, apply to class
+            try:
+                name = arg.__qualname__
+            except AttributeError:
+                raise RuntimeError('@hacks.friendly_class: ' +
+                                   'cannot get class name for ' + str(arg))
+            return friendly_class(name)(arg)
+
     def friendly_class_decorator(original_cls):
         cache = {}
 
         def reclassify(_):
             return _cached_effective_wrapped_up_class(cache, original_cls,
-                                                      name_for_hacks_up)
+                                                      names_for_hacks_up)
 
         class MetaAutoreparenting(type):
             def __call__(cls, *args, **kwds):
@@ -404,7 +433,4 @@ def friendly_class(name_for_hacks_up):
     return friendly_class_decorator
 
 
-# TODO: variable stealing
 # TODO: rewrite into a single class with exported @classmethods
-# TODO: .before and .after callable convenience decorators
-# TODO: most versatile .friendly decorator for patching generic objects

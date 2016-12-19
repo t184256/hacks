@@ -114,12 +114,16 @@ class _PluginRegistry:
                 if param_name in bound_args.arguments:
                     continue  # provided by someone else
                 try:
-                    if param.default is _Steal:
+                    if (param.default is _Steal or
+                        param.annotation is _Steal):
                         caller_locals = frameinfo[0].f_locals
                         kwa[param_name] = caller_locals[param_name]
-                    elif isinstance(param.default, _Steal):
+                    elif (isinstance(param.default, _Steal) or
+                          isinstance(param.annotation, _Steal)):
+                        caller_locals = frameinfo[0].f_locals
                         kwa[param_name] = caller_locals[param.default._name]
-                    elif isinstance(param.default, _StealFrameInfo):
+                    elif (isinstance(param.default, _StealFrameInfo) or
+                          isinstance(param.annotation, _StealFrameInfo)):
                         kwa[param_name] = frameinfo
                 except KeyError as ke:
                     avail = ', '.join('\'' + k + '\'' for k in caller_locals.keys())

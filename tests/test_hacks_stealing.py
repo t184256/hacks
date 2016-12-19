@@ -7,6 +7,7 @@ import hacks
 
 def normal_function_123():
     for i in range(1, 4):
+        j = 7 - i
         hacks.call.inner_cycle_123()  # i not passed to inner_cycle_123
 
 
@@ -16,7 +17,9 @@ storage = []
 
 @hacks.into('inner_cycle_123')
 @hacks.stealing
-def store(i=hacks.steal):
+def store(i:hacks.steal, j=hacks.steal):
+    print(i, j)
+    assert i + j == 7
     storage.append(i)
 
 def test_store():
@@ -24,7 +27,7 @@ def test_store():
         normal_function_123()
     assert storage == [1, 2, 3]
 
-    store(4)
+    store(4, 3)
     assert storage == [1, 2, 3, 4]
 
 

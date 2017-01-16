@@ -48,19 +48,21 @@ class _PluginRegistry:
     """A registry of plugins."""
     def __init__(self, hacks_iterable, package=None, _prev_hacks=None):
         self._prev_hacks_list = list(_prev_hacks) if _prev_hacks else []
-        self._new_hacks_list = list(hacks_iterable)
-        self._hacks_list = self._prev_hacks_list + self._new_hacks_list
+        self._requested_hacks_list = list(hacks_iterable)
+        self._new_hacks_list = []
         self._hacks_into = collections.defaultdict(list)
         self._hacks_around = collections.defaultdict(list)
         self._hacks_up = collections.defaultdict(list)
         self._package = package
-        for hack in self._hacks_list:
+
+        for hack in self._prev_hacks_list + self._requested_hacks_list:
             self._register(hack)
+
+        self._hacks_list = self._prev_hacks_list + self._new_hacks_list
 
         self.call = _CallProxy(self)
 
-    def _register(self, hack, recursively=True):
-        """Register a hack and remember its modifications."""
+    def _resolve(self, hack):
         if isinstance(hack, str):
             # Deal with 'my.great.module:deeply.buried.hack' format
             assert hack.count(':') == 1
@@ -68,6 +70,25 @@ class _PluginRegistry:
             hack = importlib.import_module(hack, package=self._package)
             for part in further_name.split('.'):
                 hack = getattr(hack, part)
+        return hack
+
+    def _already_registered(self, hack):
+        hack = self._resolve(hack)
+        registered_hacks = self._prev_hacks_list + self._new_hacks_list
+
+        if inspect.isclass(hack):
+            return any(isinstance(reg, hack) for reg in registered_hacks)
+        else:
+            return any(reg is hack for reg in registered_hacks)
+
+    def _register(self, hack, recursively=True):
+        """Register a hack and remember its modifications."""
+        hack = self._resolve(hack)
+
+        if hasattr(hack, '__hacks_on_top_of__'):
+            for h in hack.__hacks_on_top_of__:
+                if not self._already_registered(h):
+                    self._register(h)
 
         if hasattr(hack, '__hacks_into__'):
             for p in hack.__hacks_into__:
@@ -87,10 +108,14 @@ class _PluginRegistry:
                 hack = hack()
             self._register_attributes(hack)
 
+        if hack not in (self._prev_hacks_list + self._new_hacks_list):
+            self._new_hacks_list.append(hack)
+
     def _register_attributes(self, hack):
         """Also register methods and methods of inner classes."""
         for attrname, attr in inspect.getmembers(hack, inspect.isroutine):
-            self._register(attr, recursively=False)
+            if not attrname.startswith('__'):
+                self._register(attr, recursively=False)
         for attrname, attr in inspect.getmembers(hack, inspect.isclass):
             if not attrname.startswith('__'):
                 self._register(attr, recursively=True)
@@ -435,6 +460,17 @@ def friendly_class(*names_for_hacks_up):
         return AutoReparenting
 
     return friendly_class_decorator
+
+
+####################
+# @hacks.on_top_of #
+####################
+
+def on_top_of(*names_to_hack_on_top_of):
+    def on_top_of_decorator(func):
+          func.__hacks_on_top_of__ = names_to_hack_on_top_of
+          return func
+    return on_top_of_decorator
 
 
 # TODO: rewrite into a single class with exported @classmethods

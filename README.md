@@ -189,8 +189,8 @@ If you disagree with me, you must be an interesting and strange person
 that should probably have a look at https://github.com/pytest-dev/pluggy
 
 
-Choosing names requires forces you to design an interface!
-----------------------------------------------------------
+Choosing names forces you to design an interface!
+-------------------------------------------------
 Really? How unbearable.
 Just hook all hacks to `'x'`, my true anarchist.
 Good luck differentiating the objects though!
